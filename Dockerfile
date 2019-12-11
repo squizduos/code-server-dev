@@ -1,4 +1,6 @@
-FROM ubuntu:18.04
+FROM codercom/code-server:latest as coder-binary
+
+FROM ubuntu:18.04 AS code-server-base
 
 LABEL ru.squizduos.image squizduos/dev-server
 LABEL ru.squizduos.maintainer squizduos <squizduos@gmail.com>
@@ -56,6 +58,9 @@ RUN export CODE_SERVER="code-server"$VERSION"-linux-x86_64" && \
     mv /tmp/data/"$CODE_SERVER"/code-server /usr/local/bin && \
     rm -rf /tmp/data
 
+COPY docker-entrypoint.sh /usr/local/bin
+RUN chmod +x  /usr/local/bin/docker-entrypoint.sh
+
 # Add new user `dev`
 RUN adduser --gecos '' --disabled-password dev && \
     echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/nopasswd
@@ -68,17 +73,20 @@ WORKDIR /home/dev
 
 VOLUME [ "/home/dev" ]
 
-# Install all
-COPY install.sh /tmp/install.sh
+EXPOSE 8000-8100
 
-RUN sudo bash /tmp/install.sh
+ENTRYPOINT ["dumb-init", "/usr/local/bin/docker-entrypoint.sh"]
+
+
+FROM code-server-base
+
+COPY setup.sh /tmp/setup.sh
+
+RUN sudo chmod +x /tmp/setup.sh && \ 
+    sudo bash /tmp/setup.sh && \
+    sudo rm /tmp/setup.sh
 
 ENV GOROOT /usr/local/go
 ENV PATH $PATH:/usr/local/go/bin
 
-EXPOSE 8000-8100
-
-COPY sync-extensions.sh /usr/local/bin
-COPY docker-entrypoint.sh /usr/local/bin
-
-ENTRYPOINT ["dumb-init", "/usr/local/bin/docker-entrypoint.sh"]
+# COPY sync-extensions.sh /usr/local/bin
